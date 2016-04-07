@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -15,11 +15,9 @@
  * Homepage: http://www.fsarchiver.org
  */
 
-#ifndef __RESTORE_H__
-#define __RESTORE_H__
+#ifndef __OPER_SAVE_H__
+#define __OPER_SAVE_H__
 
-#include "dico.h"
+int oper_save(char *archive, int argc, char **argv, int archtype);
 
-int restore(int argc, char **argv, int oper);
-
-#endif // __RESTORE_H__
+#endif // __OPER_SAVE_H__

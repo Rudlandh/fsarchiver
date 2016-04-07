@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -35,6 +35,8 @@ struct s_filesys
     int (*mkfs)(struct s_dico *d, char *partition, char *fsoptions);
     int (*test)(char *partition);
     int (*reqmntopt)(char *partition, struct s_strlist *reqopt, struct s_strlist *badopt);
+    bool support_for_xattr;
+    bool support_for_acls;
     bool winattr;
     bool savesymtargettype; // we have to know the type of the target to recreate a symlink on ntfs
 };

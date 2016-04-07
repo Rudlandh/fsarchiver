@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -40,17 +40,15 @@ int getpathtoprog(char *buffer, int bufsize, char *prog);
 int mkdir_recursive(char *path);
 char *get_objtype_name(int objtype);
 int is_dir_empty(char *path);
-u64 generate_random_number();
+u32 generate_random_u32_id(void);
 u32 fletcher32(u8 *data, u32 len);
 int regfile_exists(char *filepath);
-int is_valid_header_type(u32 headertype);
+int is_magic_valid(char *magic);
 char *strlcatf(char *dest, int destbufsize, char *format, ...) __attribute__ ((format (printf, 3, 4)));
 int format_stacktrace(char *buffer, int bufsize);
 int stats_show(struct s_stats, int fsid);
 u64 stats_errcount(struct s_stats stats);
 int exclude_check(struct s_strlist *patlist, char *string);
 int get_path_to_volume(char *newvolbuf, int bufsize, char *basepath, long curvol);
-int config_read_entry(char *entryname, char *buffer, int buflen);
-int detect_file_format_version(char *archive);
 
 #endif // __COMMON_H__

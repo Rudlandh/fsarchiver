@@ -3,12 +3,12 @@
 
 AC_PREREQ(2.59)
 
-AC_INIT([fsarchiver], 0.7.0-git)
-AC_DEFINE([PACKAGE_RELDATE], "YYYY-MM-DD", [Define the date of the release])
-AC_DEFINE([PACKAGE_FILEFMT], "FsArCh_003", [Define the version of the file format])
+AC_INIT([fsarchiver], 0.6.23-git)
+AC_DEFINE([PACKAGE_RELDATE], "2016-MM-DD", [Define the date of the release])
+AC_DEFINE([PACKAGE_FILEFMT], "FsArCh_002", [Define the version of the file format])
 AC_DEFINE([PACKAGE_VERSION_A], 0, [Major version number])
-AC_DEFINE([PACKAGE_VERSION_B], 7, [Medium version number])
-AC_DEFINE([PACKAGE_VERSION_C], 0, [Minor version number])
+AC_DEFINE([PACKAGE_VERSION_B], 6, [Medium version number])
+AC_DEFINE([PACKAGE_VERSION_C], 23, [Minor version number])
 AC_DEFINE([PACKAGE_VERSION_D], 0, [Patch version number])
 
 AC_CANONICAL_HOST([])
@@ -86,8 +86,6 @@ PKG_CHECK_MODULES([COM_ERR], [com_err])
 PKG_CHECK_MODULES([E2P], [e2p])
 PKG_CHECK_MODULES([BLKID], [blkid])
 PKG_CHECK_MODULES([UUID], [uuid])
-PKG_CHECK_MODULES([LIBPARTED], [libparted])
-PKG_CHECK_EXISTS([libparted < 2.1], [AC_DEFINE([OLD_PARTED], 1, [Set if parted < 2.1])])
 
 dnl Check for header files installed with a library
 AC_CHECK_HEADER([attr/xattr.h],, [AC_MSG_ERROR([attr/xattr.h not found. you may have to install a package called attr, libattr, libattr-devel])])
@@ -132,6 +130,6 @@ AC_ARG_WITH(debug-level,
 )
 AC_SUBST(DEFAULT_DEBUG_LEVEL)
 
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile config/Makefile config/fsarchiver.conf])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile])
 
 AC_OUTPUT

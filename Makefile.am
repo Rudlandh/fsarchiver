@@ -1,4 +1,4 @@
-SUBDIRS = src doc config
+SUBDIRS = src doc
 
 EXTRA_DIST = AUTHORS COPYING ChangeLog INSTALL NEWS README distrib internals autogen.sh
 

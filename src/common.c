@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -36,8 +36,6 @@
 
 #include "fsarchiver.h"
 #include "syncthread.h"
-#include "archio.h"
-#include "thread_compat06.h"
 #include "strlist.h"
 #include "common.h"
 #include "error.h"
@@ -205,19 +203,18 @@ int is_dir_empty(char *path)
     return 0;
 }
 
-// generate a non-null random number
-u64 generate_random_number()
+// generate a non-null random u32
+u32 generate_random_u32_id(void)
 {
     struct timeval now;
-    u64 randnum;
+    u32 archid;
 
     memset(&now, 0, sizeof(struct timeval));
     do
     {   gettimeofday(&now, NULL);
-        randnum = ((u64)now.tv_sec) ^ ((u64)now.tv_usec);
-    }
-    while (randnum == 0);
-    return randnum;
+        archid=((u32)now.tv_sec)^((u32)now.tv_usec);
+    } while (archid==0);
+    return archid;
 }
 
 u32 fletcher32(u8 *data, u32 len)
@@ -430,16 +427,12 @@ int generate_random_tmpdir(char *buffer, int bufsize, int n)
 }
 
 // returns true if magic is a valid magic-string
-int is_valid_header_type(u32 headertype)
+int is_magic_valid(char *magic)
 {
     int i;
-
-    for (i = 0; g_valid_header_types[i] != 0; i++)
-    {
-        if (headertype == g_valid_header_types[i])
+    for (i=0; valid_magic[i]!=NULL; i++)
+        if (memcmp(magic, valid_magic[i], FSA_SIZEOF_MAGIC)==0)
             return true;
-    }
-
     return false;
 }
 
@@ -617,93 +610,3 @@ int get_path_to_volume(char *newvolbuf, int bufsize, char *basepath, long curvol
     return 0;
 }
 
-int config_read_entry(char *entryname, char *buffer, int buflen)
-{
-    char curline[4096]; // current line
-    char lvalue[4096]; // value before '='
-    char rvalue[4096]; // value after '='
-    FILE *fconf; // configuration file
-    int ret=-1;
-    int curc;
-    int pos;
-    int i;
-    
-    memset(buffer, 0, buflen);
-    
-    if ((fconf=fopen(FSA_CONFIG_FILE, "rb"))==NULL)
-        return -1;
-    
-    while (!feof(fconf))
-    {
-        // read a line from the config file
-        memset(curline, 0, sizeof(curline));
-        pos=0;
-        while ((!feof(fconf)) && (pos<sizeof(curline)))
-        {
-            if ((curc=fgetc(fconf))=='\n')
-                break;
-
-            if (!feof(fconf))
-                curline[pos++]=curc;
-        }
-
-        // parse line
-        if ((strlen(curline)>0) && (curline[0]!='#') && index(curline, '='))
-        {
-                memset(lvalue, 0, sizeof(lvalue));
-                memset(rvalue, 0, sizeof(rvalue));
-                for(pos=0; (curline[pos]==' ') || (curline[pos]=='\t'); pos++); // skip spaces
-                for(i=0; (curline[pos]!=0) && (curline[pos]!='=') && (i<sizeof(lvalue)); lvalue[i++]=curline[pos++]);
-                pos++; // skip '='
-                for(i=0; (curline[pos]!=0) && (curline[pos]!='\n') && (i<sizeof(rvalue)); rvalue[i++]=curline[pos++]);
-                if (strcmp(entryname, lvalue)==0) // found entry
-                {   snprintf(buffer, buflen, "%s", rvalue);
-                    ret=0;
-                }
-        }
-    }
-    fclose(fconf);
-    
-    return ret;
-}
-
-int detect_file_format_version(char *archive)
-{
-    carchio *ai07 = NULL;
-    carchreader ai06;
-    u32 ecclevel = 0;
-
-    // attempt to read a fsarchiver-0.6 archive
-    archreader_init(&ai06);
-    snprintf(ai06.basepath, PATH_MAX, "%s", archive);
-
-    if ((archreader_volpath(&ai06) == 0) && (archreader_open(&ai06) == 0))
-    {
-        archreader_close(&ai06);
-        archreader_destroy(&ai06);
-        return FSA_FMT_06;
-    }
-    else
-    {
-        archreader_destroy(&ai06);
-    }
-
-    // attempt to read a fsarchiver-0.7 archive
-    if ((ai07 = archio_alloc()) == NULL)
-    {
-        return FSAERR_ENOMEM;
-    }
-
-    if (archio_init_read(ai07, archive, &ecclevel) == 0)
-    {
-        archio_close_read(ai07);
-        archio_destroy(ai07);
-        return FSA_FMT_07;
-    }
-    else
-    {
-        archio_destroy(ai07);
-    }
-
-    return FSA_FMT_NULL;
-}

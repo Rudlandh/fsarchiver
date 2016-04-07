@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,18 +20,14 @@
 #endif
 
 #include <signal.h>
-#include <stdio.h>
 
 #include "fsarchiver.h"
 #include "fsarchiver.h"
 #include "syncthread.h"
-#include "iobuffer.h"
 #include "queue.h"
-#include "error.h"
 
 // queue use to share data between the three sort of threads
-cqueue *g_queue = NULL;
-ciobuffer *g_iobuffer = NULL;
+cqueue g_queue;
 
 // filesystem bitmap used by do_extract() to say to threadio_readimg which filesystems to skip
 // eg: "g_fsbitmap[0]=1,g_fsbitmap[1]=0" means that we want to read filesystem 0 and skip fs 1
@@ -39,27 +35,21 @@ u8 g_fsbitmap[FSA_MAX_FSPERARCH];
 
 // g_stopfillqueue is set to true when the threads that reads the queue wants to stop
 // either because there is an error or because it does not need the next data
-atomic_t g_status = { (STATUS_RUNNING) };
+atomic_t g_stopfillqueue={ (false) };
+atomic_t g_aborted={ (false) };
+
+void set_stopfillqueue()
+{   
+    atomic_set(&g_stopfillqueue, true);
+}
+
+bool get_stopfillqueue()
+{
+    return atomic_read(&g_stopfillqueue);
+}
 
 // how many secondary threads are running (compression/decompression and archio threads)
 atomic_t g_secthreads={ (0) };
-
-char *get_status_text(int status)
-{
-    switch (status)
-    {
-        case STATUS_RUNNING:
-            return "STATUS_RUNNING";
-        case STATUS_FINISHED:
-            return "STATUS_FINISHED";
-        case STATUS_ABORTED:
-            return "STATUS_ABORTED";
-        case STATUS_FAILED:
-            return "STATUS_FAILED";
-        default:
-            return "STATUS_??????";
-    };
-};
 
 void inc_secthreads()
 {
@@ -76,40 +66,33 @@ int get_secthreads()
     return atomic_read(&g_secthreads);
 }
 
-void set_status(int status, char *context)
+bool get_interrupted()
 {
-    atomic_set(&g_status, status);
-    msgprintf(MSG_DEBUG1, "set_status(status=[%d]=[%s], context=[%s])\n", status, get_status_text(status), context);
+    return (get_abort()==true || get_stopfillqueue()==true);
 }
 
-int get_status()
+// get_abort() returns true if a SIGINT/SIGTERM has been received (interrupted by the user)
+int get_abort()
 {
     int mysigs[]={SIGINT, SIGTERM, -1};
     sigset_t mask_set;
-    int old_status;
+    sigpending(&mask_set);
     int i;
-
-    old_status = atomic_read(&g_status);
-
-    // no need to worry about SIGINT/SIGTERM if already aborted / failed
-    if (old_status != STATUS_RUNNING)
+    
+    if (atomic_read(&g_aborted)==true)
+        return true;
+    
+    if (sigpending(&mask_set)==0)
     {
-        return old_status;
-    }
-
-    // if status is running then check signals SIGINT/SIGTERM
-    if (sigpending(&mask_set) == 0)
-    {
-        for (i=0; mysigs[i] != -1; i++)
+        for (i=0; mysigs[i]!=-1; i++)
         {
             if (sigismember(&mask_set, mysigs[i]))
-            {
-                fprintf(stderr, "get_status(): received signal %d\n", mysigs[i]);
-                atomic_set(&g_status, STATUS_ABORTED);
-                return STATUS_ABORTED;
+            {   //msgprintf(MSG_FORCE, "get_terminate(): received signal %d\n", mysigs[i]);
+                atomic_set(&g_aborted, true);
+                return true;
             }
         }
     }
-
-    return old_status;
+    
+    return false;
 }

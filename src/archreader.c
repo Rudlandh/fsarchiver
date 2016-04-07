@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -28,30 +28,14 @@
 #include <assert.h>
 
 #include "fsarchiver.h"
-#include "thread_compat06.h"
 #include "dico.h"
 #include "common.h"
-#include "error.h"
-#include "syncthread.h"
-#include "queue.h"
 #include "options.h"
+#include "archreader.h"
+#include "queue.h"
 #include "comp_gzip.h"
 #include "comp_bzip2.h"
 #include "error.h"
-
-char *valid_magic[]={FSA_MAGIC_MAIN, FSA_MAGIC_VOLH, FSA_MAGIC_VOLF,
-    FSA_MAGIC_FSIN, FSA_MAGIC_FSYB, FSA_MAGIC_DATF, FSA_MAGIC_OBJT,
-    FSA_MAGIC_BLKH, FSA_MAGIC_FILF, FSA_MAGIC_DIRS, 0};
-
-// returns true if magic is a valid magic-string
-int is_magic_valid(char *magic)
-{
-    int i;
-    for (i=0; valid_magic[i] != 0; i++)
-        if (memcmp(valid_magic[i], magic, 4)==0)
-            return true;
-    return false;
-}
 
 int archreader_init(carchreader *ai)
 {
@@ -125,6 +109,7 @@ int archreader_open(carchreader *ai)
     }
     else
     {
+        errprintf("%s is not a supported fsarchiver file format\n", ai->volpath);
         close(ai->archfd);
         return -1;
     }
@@ -281,10 +266,8 @@ int archreader_read_dico(carchreader *ai, cdico *d)
     return FSAERR_SUCCESS;
 }
 
-int archreader_read_header(carchreader *ai, u32 *magic, cdico **d, bool allowseek, u16 *fsid)
+int archreader_read_header(carchreader *ai, char *magic, cdico **d, bool allowseek, u16 *fsid)
 {
-    char magbuf[4];
-    u32 magictmp;
     s64 curpos;
     u16 temp16;
     u32 temp32;
@@ -294,11 +277,10 @@ int archreader_read_header(carchreader *ai, u32 *magic, cdico **d, bool allowsee
     assert(ai);
     assert(d);
     assert(fsid);
-    assert(magic);
     
     // init
+    memset(magic, 0, FSA_SIZEOF_MAGIC);
     *fsid=FSA_FILESYSID_NULL;
-    *magic=0;
     *d=NULL;
     
     if ((*d=dico_alloc())==NULL)
@@ -312,26 +294,24 @@ int archreader_read_header(carchreader *ai, u32 *magic, cdico **d, bool allowsee
         return OLDERR_FATAL;
     }
     
-    if ((res=archreader_read_data(ai, magbuf, sizeof(magbuf)))!=FSAERR_SUCCESS)
+    if ((res=archreader_read_data(ai, magic, FSA_SIZEOF_MAGIC))!=FSAERR_SUCCESS)
     {   msgprintf(MSG_STACK, "cannot read header magic: res=%d\n", res);
         return OLDERR_FATAL;
     }
-    memcpy(&magictmp, magbuf, 4);
-    *magic = le32_to_cpu(magictmp);
     
     // we don't want to search for the magic if it's a volume header
-    if (is_magic_valid(magbuf)!=true && allowseek!=true)
+    if (is_magic_valid(magic)!=true && allowseek!=true)
     {   errprintf("cannot read header magic: this is not a valid fsarchiver file, or it has been created with a different version.\n");
         return OLDERR_FATAL;
     }
     
-    while (is_magic_valid(magbuf)!=true)
+    while (is_magic_valid(magic)!=true)
     {
         if (lseek64(ai->archfd, curpos++, SEEK_SET)<0)
         {   sysprintf("lseek64(pos=%lld, SEEK_SET) failed\n", (long long)curpos);
             return OLDERR_FATAL;
         }
-        if ((res=archreader_read_data(ai, magic, 4))!=FSAERR_SUCCESS)
+        if ((res=archreader_read_data(ai, magic, FSA_SIZEOF_MAGIC))!=FSAERR_SUCCESS)
         {   msgprintf(MSG_STACK, "cannot read header magic: res=%d\n", res);
             return OLDERR_FATAL;
         }
@@ -371,7 +351,7 @@ int archreader_read_volheader(carchreader *ai)
 {
     char creatver[FSA_MAX_PROGVERLEN];
     char filefmt[FSA_MAX_FILEFMTLEN];
-    u32 magic = 0;
+    char magic[FSA_SIZEOF_MAGIC];
     cdico *d;
     u32 volnum;
     u32 readid;
@@ -381,16 +361,17 @@ int archreader_read_volheader(carchreader *ai)
     
     // init
     assert(ai);
+    memset(magic, 0, sizeof(magic));
 
     // ---- a. read header from archive file
-    if ((res=archreader_read_header(ai, &magic, &d, false, &fsid))!=FSAERR_SUCCESS)
+    if ((res=archreader_read_header(ai, magic, &d, false, &fsid))!=FSAERR_SUCCESS)
     {   errprintf("archreader_read_header() failed to read the archive header\n");
         return -1;
     }
     
     // ---- b. check the magic is what we expected
-    if (memcmp(&magic, FSA_MAGIC_VOLH, 4)!=0)
-    {   errprintf("magic is not what we expected: found=[%ld]=[%4s] and expected=[%s]\n", (long)magic, (char*)&magic, FSA_MAGIC_VOLH);
+    if (strncmp(magic, FSA_MAGIC_VOLH, FSA_SIZEOF_MAGIC)!=0)
+    {   errprintf("magic is not what we expected: found=[%s] and expected=[%s]\n", magic, FSA_MAGIC_VOLH);
         ret=-1; goto archio_read_volheader_error;
     }
     
@@ -561,169 +542,4 @@ int archreader_read_block(carchreader *ai, cdico *in_blkdico, int in_skipblock, 
     }
     
     return 0;
-}
-
-void *thread_compat06_fct(void *args)
-{
-    struct s_blockinfo blkinfo;
-    u32 endofarchive=false;
-    carchreader ai;
-    cdico *dico=NULL;
-    int skipblock;
-    u32 magic;
-    u16 fsid;
-    int sumok;
-    int status;
-    u64 errors;
-    s64 lres;
-    int res;
-
-    // init
-    memset(&ai, 0, sizeof(ai));
-    inc_secthreads();
-    errors=0;
-
-    // init archive
-    archreader_init(&ai);
-
-    // set archive path
-    snprintf(ai.basepath, PATH_MAX, "%s", g_archive);
-
-    // open archive file
-    if (archreader_volpath(&ai)!=0)
-    {   errprintf("archreader_volpath() failed\n");
-        goto thread_reader_fct_error;
-    }
-    
-    if (archreader_open(&ai)!=0)
-    {   errprintf("archreader_open(%s) failed\n", ai.basepath);
-        goto thread_reader_fct_error;
-    }
-    
-    // read volume header
-    if (archreader_read_volheader(&ai)!=0)
-    {   errprintf("archio_read_volheader() failed\n");
-        goto thread_reader_fct_error;
-    }
-    
-    // ---- read main archive header
-    if ((res=archreader_read_header(&ai, &magic, &dico, false, &fsid))!=FSAERR_SUCCESS)
-    {   errprintf("archreader_read_header() failed to read the archive header\n");
-        goto thread_reader_fct_error; // this header is required to continue
-    }
-    
-    if (dico_get_u32(dico, 0, MAINHEADKEY_ARCHIVEID, &ai.archid)!=0)
-    {   msgprintf(3, "cannot get archive-id from main header\n");
-        goto thread_reader_fct_error;
-    }
-    
-    if ((lres=queue_add_header(g_queue, dico, magic, fsid))!=FSAERR_SUCCESS)
-    {   errprintf("queue_add_header()=%ld=%s failed to add the archive header\n", (long)lres, error_int_to_string(lres));
-        goto thread_reader_fct_error;
-    }
-    
-    // read all other data from file (filesys-header, normal objects headers, ...)
-    while (endofarchive==false && get_status()==STATUS_RUNNING)
-    {
-        if ((res=archreader_read_header(&ai, &magic, &dico, true, &fsid))!=FSAERR_SUCCESS)
-        {   dico_destroy(dico);
-            msgprintf(MSG_STACK, "archreader_read_header() failed to read next header\n");
-            if (res==OLDERR_MINOR) // header is corrupt or not what we expected
-            {   errors++;
-                msgprintf(MSG_DEBUG1, "OLDERR_MINOR\n");
-                continue;
-            }
-            else // fatal error (eg: cannot read archive from disk)
-            {
-                msgprintf(MSG_DEBUG1, "!OLDERR_MINOR\n");
-                goto thread_reader_fct_error;
-            }
-        }
-        
-        // read header and see if it's for archive management or higher level data
-        if (memcmp(&magic, FSA_MAGIC_VOLF, 4)==0) // header is "end of volume"
-        {
-            archreader_close(&ai);
-            
-            // check the "end of archive" flag in header
-            if (dico_get_u32(dico, 0, VOLUMEFOOTKEY_LASTVOL, &endofarchive)!=0)
-            {   errprintf("cannot get compr from block-header\n");
-                goto thread_reader_fct_error;
-            }
-            msgprintf(MSG_VERB2, "End of volume [%s]\n", ai.volpath);
-            if (endofarchive!=true)
-            {
-                archreader_incvolume(&ai, false);
-                while (regfile_exists(ai.volpath)!=true)
-                {
-                    // wait until the queue is empty so that the main thread does not pollute the screen
-                    while (queue_count(g_queue)>0)
-                        usleep(5000);
-                    fflush(stdout);
-                    fflush(stderr);
-                    msgprintf(MSG_FORCE, "File [%s] is not found, please type the path to volume %ld:\n", ai.volpath, (long)ai.curvol);
-                    fprintf(stdout, "New path:> ");
-                    res=scanf("%s", ai.volpath);
-                }
-                
-                msgprintf(MSG_VERB2, "New volume is [%s]\n", ai.volpath);
-                if (archreader_open(&ai)!=0)
-                {   msgprintf(MSG_STACK, "archreader_open() failed\n");
-                    goto thread_reader_fct_error;
-                }
-                if (archreader_read_volheader(&ai)!=0)
-                {   msgprintf(MSG_STACK, "archio_read_volheader() failed\n");
-                    goto thread_reader_fct_error;
-                }
-            }
-            dico_destroy(dico);
-        }
-        else // high-level archive (not involved in volume management)
-        {
-            if (memcmp(&magic, FSA_MAGIC_BLKH, 4)==0) // header starts a data block
-            {
-                skipblock=(g_fsbitmap[fsid]==0);
-                //errprintf("DEBUG: skipblock=%d g_fsbitmap[fsid=%d]=%d\n", skipblock, (int)fsid, (int)g_fsbitmap[fsid]);
-                if (archreader_read_block(&ai, dico, skipblock, &sumok, &blkinfo)!=0)
-                {   msgprintf(MSG_STACK, "archreader_read_block() failed\n");
-                    goto thread_reader_fct_error;
-                }
-                
-                if (skipblock==false)
-                {
-                    status=((sumok==true)?QITEM_STATUS_TODO:QITEM_STATUS_DONE);
-                    if ((lres=queue_add_block(g_queue, &blkinfo, status))!=FSAERR_SUCCESS)
-                    {   if (lres!=FSAERR_NOTOPEN)
-                            errprintf("queue_add_block()=%ld=%s failed\n", (long)lres, error_int_to_string(lres));
-                        goto thread_reader_fct_error;
-                    }
-                    if (sumok==false) errors++;
-                    dico_destroy(dico);
-                }
-            }
-            else // another higher level header
-            {
-                // if it's a global header or a if this local header belongs to a filesystem that the main thread needs
-                if (fsid==FSA_FILESYSID_NULL || g_fsbitmap[fsid]==1)
-                {
-                    if ((lres=queue_add_header(g_queue, dico, magic, fsid))!=FSAERR_SUCCESS)
-                    {   msgprintf(MSG_STACK, "queue_add_header()=%ld=%s failed\n", (long)lres, error_int_to_string(lres));
-                        goto thread_reader_fct_error;
-                    }
-                }
-                else // header not used: remove data strucutre in dynamic memory
-                {
-                    dico_destroy(dico);
-                }
-            }
-        }
-    }
-    
-thread_reader_fct_error:
-    archreader_destroy(&ai);
-    msgprintf(MSG_DEBUG1, "THREAD-READER: queue_set_end_of_queue(g_queue, true)\n");
-    queue_set_end_of_queue(g_queue, true); // don't wait for more data from this thread
-    dec_secthreads();
-    msgprintf(MSG_DEBUG1, "THREAD-READER: exit\n");
-    return NULL;
 }

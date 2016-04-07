@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -36,14 +36,6 @@ struct s_devinfo
     u64  rdev;
 };
 
-struct s_diskinfo
-{
-    bool detailed;
-    char format[256];
-    char title[256];
-};
-
-int get_partlist(struct s_devinfo *blkdev, int maxblkdev, int *diskcount, int *partcount);
 int get_devinfo(struct s_devinfo *outdev, char *indevname, int min, int maj);
 
 #endif // __DEVINFO_H__

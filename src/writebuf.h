@@ -15,32 +15,25 @@
  * Homepage: http://www.fsarchiver.org
  */
 
-#ifndef __DICHL_H__
-#define __DICHL_H__
+#ifndef __WRITEBUF_H__
+#define __WRITEBUF_H__
 
-#include "types.h"
+struct s_dico;
+struct s_blockinfo;
 
-struct s_dichl;
-typedef struct s_dichl cdichl;
+struct s_writebuf;
+typedef struct s_writebuf cwritebuf;
 
-struct s_dichlitem;
-typedef struct s_dichlitem cdichlitem;
-
-struct s_dichl
-{
-    cdichlitem *head;
+struct s_writebuf
+{   char *data;
+    u64  size;
 };
 
-struct s_dichlitem
-{   u64         key1;
-    u64         key2;
-    char        *str;
-    cdichlitem  *next;
-};
+cwritebuf *writebuf_alloc();
+int writebuf_destroy(cwritebuf *wb);
+int writebuf_add_data(cwritebuf *wb, void *data, u64 size);
+int writebuf_add_dico(cwritebuf *wb, struct s_dico *d, char *magic);
+int writebuf_add_header(cwritebuf *wb, struct s_dico *d, char *magic, u32 archid, u16 fsid);
+int writebuf_add_block(cwritebuf *wb, struct s_blockinfo *blkinfo, u32 archid, u16 fsid);
 
-cdichl *dichl_alloc();
-int    dichl_destroy(cdichl *d);
-int    dichl_add(cdichl *d, u64 key1, u64 key2, char *str);
-int    dichl_get(cdichl *d, u64 key1, u64 key2, char *buf, int bufsize);
-
-#endif // __DICHL_H__
+#endif // __WRITEBUF_H__

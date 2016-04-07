@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -15,9 +15,12 @@
  * Homepage: http://www.fsarchiver.org
  */
 
-#ifndef __LAYOUT_SAVE_H__
-#define __LAYOUT_SAVE_H__
+#ifndef __THREAD_WRITER_H__
+#define __THREAD_WRITER_H__
 
-int savept(cdico *dico, int dicsection);
+#include <pthread.h>
 
-#endif // __LAYOUT_SAVE_H__
+void *thread_writer_fct(void *args);
+void *thread_reader_fct(void *args);
+
+#endif // __THREAD_WRITER_H__

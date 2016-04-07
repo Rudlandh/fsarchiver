@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -15,12 +15,11 @@
  * Homepage: http://www.fsarchiver.org
  */
 
-#ifndef __LAYOUT_REST_H__
-#define __LAYOUT_REST_H__
+#ifndef __OPER_RESTORE_H__
+#define __OPER_RESTORE_H__
 
-struct s_strdico;
+#include "dico.h"
 
-int restpt(char *partdesc, int id, struct s_strdico *dicocmdline);
-int showpt(char *partdesc, int id);
+int oper_restore(char *archive, int argc, char **argv, int oper);
 
-#endif // __LAYOUT_REST_H__
+#endif // __OPER_RESTORE_H__

@@ -1,13 +1,25 @@
 fsarchiver: Filesystem Archiver for Linux [http://www.fsarchiver.org]
 =====================================================================
-* 0.7.0:
-  - Major feature: implemented savept, restpt, showpt (save and restore partition tables)
-  - Added configuration file: /etc/fsarchiver.conf (it currently only supports "exclude_restpt")
-  - Implemented error correction based on Forward Error Correction (FEC) (cf: option -y)
-  - File format more robust when corruptions / insertions / deletions happen in the archive
-* 0.6.17:
+* 0.6.22 (2016-02-13):
+  - Test support for extended attributes and ACLs instead of checking mount options
+* 0.6.21 (2016-01-07):
+  - Removed duplicate types definitions in order to fix compilation errors
+  - Attempt to unmount a device four times before failing
+* 0.6.20 (2016-01-03):
+  - Detect version of XFS filesystems in order to preserve it when they are restored
+  - Add support for XFS filesystems features introduced in XFS version 5
+  - Make sure the UUIDs of XFS filesystems are always preserved
+* 0.6.19 (2014-03-01):
+  - Reverted "number of inode blocks per group" patch which caused a regression in release 0.6.18
+* 0.6.18 (2014-02-13):
+  - Prepared release sources using autoconf-2.69 to add support for new architectures (RHBZ#925370)
+  - Applied patch from Berix to preserve the number of inode blocks per group on ext filesystems
+  - Added support for recent btrfs features (up to linux-3.14)
+  - Run mkfs.btrfs with option "-f" so that it does not fail on devices with pre-existing filesystems
+* 0.6.17 (2013-02-25):
   - Implemented "mkfsopt" restfs option to pass extra options to mkfs (Michael Moninski)
   - Fixed parsing of "/proc/self/mountinfo" (mount options were not parsed on new systems)
+  - Removed the ebuild for gentoo as fsarchiver is now in the official portage tree
 * 0.6.16 (2013-02-07):
   - Fixed mke2fs requirement for the "ext_attr" feature (affects RHLE5/CentOS5)
   - Fixed parsing of "/proc/self/mountinfo" for systemd based systems

@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -25,14 +25,11 @@ typedef struct s_options coptions;
 
 // struct that stores the options passed on the command line
 struct s_options
-{
-    bool     overwrite;
+{   bool     overwrite;
     bool     allowsaverw;
     bool     dontcheckmountopts;
-    bool     nosavept;
     int      verboselevel;
     int      debuglevel;
-    int      ecclevel;
     int      compresslevel;
     int      compressjobs;
     u16      compressalgo;

@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -251,31 +251,38 @@ int compression_function(int oper)
     struct s_blockinfo blkinfo;
     s64 blknum;
     int res;
-
-    while (queue_get_end_of_queue(g_queue) == false)
+    
+    while (queue_get_end_of_queue(&g_queue)==false)
     {
-        if ((blknum = queue_get_first_block_todo(g_queue, &blkinfo)) > 0) // block found
+        if ((blknum=queue_get_first_block_todo(&g_queue, &blkinfo))>0) // block found
         {
             switch (oper)
             {
                 case COMPTHR_COMPRESS:
-                    res = compress_block_generic(&blkinfo);
+                    res=compress_block_generic(&blkinfo);
                     break;
                 case COMPTHR_DECOMPRESS:
-                    res = decompress_block_generic(&blkinfo);
+                    res=decompress_block_generic(&blkinfo);
                     break;
                 default:
-                    set_status(STATUS_FAILED, "invalid oper");
-                    goto thread_comp_fct_cleanup;
+                    errprintf("oper is invalid: %d\n", oper);
+                    goto thread_comp_fct_error;
             }
-
+            if (res!=0)
+            {   msgprintf(MSG_STACK, "compress_block()=%d failed\n", res);
+                goto thread_comp_fct_error;
+            }
             // don't check for errors: it's normal to fail when we terminate after a problem
-            queue_replace_block(g_queue, blknum, &blkinfo, QITEM_STATUS_DONE);
+            queue_replace_block(&g_queue, blknum, &blkinfo, QITEM_STATUS_DONE);
         }
     }
-
-thread_comp_fct_cleanup:
-    msgprintf(MSG_DEBUG1, "THREAD-COMP: exit\n");
+    
+    msgprintf(MSG_DEBUG1, "THREAD-COMP: exit success\n");
+    return 0;
+    
+thread_comp_fct_error:
+    get_stopfillqueue();
+    msgprintf(MSG_DEBUG1, "THREAD-COMP: exit error\n");
     return 0;
 }
 

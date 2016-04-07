@@ -1,7 +1,7 @@
 /*
  * fsarchiver: Filesystem Archiver
  *
- * Copyright (C) 2008-2012 Francois Dupoux.  All rights reserved.
+ * Copyright (C) 2008-2016 Francois Dupoux.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -19,12 +19,16 @@
 #define __SYNCTHREAD_H__
 
 // global threads sync data
-extern struct s_queue *g_queue;
-extern struct s_iobuffer *g_iobuffer;
+extern struct s_queue g_queue; // queue use to share data between the three sort of threads
 
 // global threads sync functions
-void set_status(int status, char *context);
-int get_status();
+int get_abort(); // returns true if threads must exit because an error or signal received
+
+bool get_interrupted(); // returns true if either abort is true of stopfillqueue is true
+
+// say to the thread that is filling the queue to stop
+void set_stopfillqueue();
+bool get_stopfillqueue();
 
 // secondary threads counter
 void inc_secthreads();

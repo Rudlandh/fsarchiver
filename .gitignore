@@ -1,3 +1,4 @@
+*.o
 configure
 Makefile.in
 config.log
@@ -15,7 +16,3 @@ missing
 Makefile
 aclocal.m4
 install-sh
-*.swp
-*.o
-*~
-
