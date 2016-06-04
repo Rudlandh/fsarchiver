@@ -29,10 +29,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <execinfo.h>
 #include <wordexp.h>
 #include <fnmatch.h>
 #include <time.h>
+#include <limits.h>
+
+#ifdef HAVE_EXECINFO_H
+#include <execinfo.h>
+#endif
 
 #include "fsarchiver.h"
 #include "syncthread.h"
@@ -420,9 +424,9 @@ int generate_random_tmpdir(char *buffer, int bufsize, int n)
     abstime=tv.tv_sec;
         localtime_r(&abstime, &tbreak);
     
-    snprintf(buffer, bufsize, "/tmp/fsa/%.4d%.2d%.2d-%.2d%.2d%.2d-%.2d",
+    snprintf(buffer, bufsize, "/tmp/fsa/%.4d%.2d%.2d-%.2d%.2d%.2d-%.8x-%.2d",
         tbreak.tm_year+1900, tbreak.tm_mon+1, tbreak.tm_mday,
-         tbreak.tm_hour, tbreak.tm_min, tbreak.tm_sec, n);
+         tbreak.tm_hour, tbreak.tm_min, tbreak.tm_sec, (u32)tv.tv_usec, n);
     return 0;
 }
 
@@ -549,6 +553,7 @@ u64 stats_errcount(cstats stats)
 
 int format_stacktrace(char *buffer, int bufsize)
 {
+#ifdef HAVE_EXECINFO_H
     const int stack_depth=20;
     void *temp[stack_depth];
     char **strings;
@@ -565,6 +570,7 @@ int format_stacktrace(char *buffer, int bufsize)
             strlcatf(buffer, bufsize, "%s\n", strings[i]);
         free(strings);
     }
+#endif
     
     return 0;
 }
