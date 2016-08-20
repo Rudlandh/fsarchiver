@@ -279,7 +279,7 @@ int createar_item_xattr(csavear *save, char *root, char *relpath, struct stat64 
         len=strlen(buffer+pos)+1;
         attrsize=lgetxattr(fullpath, buffer+pos, NULL, 0);
         msgprintf(MSG_VERB2, "            xattr:file=[%s], attrid=%d, name=[%s], size=%ld\n", relpath, (int)attrcnt, buffer+pos, (long)attrsize);
-        if ((attrsize>0) && (attrsize>65535LL))
+        if (attrsize>65535LL)
         {   errprintf("file [%s] has an xattr [%s] with data too big (size=%ld, maxsize=64k)\n", relpath, buffer+pos, (long)attrsize);
             ret=-1;
             continue; // copy the next xattr
@@ -311,7 +311,7 @@ int createar_item_xattr(csavear *save, char *root, char *relpath, struct stat64 
             free(valbuf);
             continue; // copy the next xattr
         }
-        else if (errno==ENOATTR) // if the attribute does not exist
+        else // errno==ENOATTR hence the attribute does not exist
         {
             msgprintf(MSG_VERB2, "            xattr:lgetxattr-win(%s,%s)=-1: errno==ENOATTR\n", relpath, buffer+pos);
             free(valbuf);
@@ -353,7 +353,7 @@ int createar_item_winattr(csavear *save, char *root, char *relpath, struct stat6
             continue; // ignore the current xattr
         }
         msgprintf(MSG_VERB2, "            winattr:file=[%s], attrcnt=%d, name=[%s], size=%ld\n", relpath, (int)attrcnt, winattr[i], (long)attrsize);
-        if ((attrsize>0) && (attrsize>65535LL))
+        if (attrsize>65535LL)
         {
             errprintf("file [%s] has an xattr [%s] with data size=%ld too big (max xattr size is 65535)\n", relpath, winattr[i], (long)attrsize);
             ret=-1;
@@ -384,13 +384,9 @@ int createar_item_winattr(csavear *save, char *root, char *relpath, struct stat6
             free(valbuf);
             continue; // ignore the current xattr
         }
-        else if (errno==ENOATTR) // if the attribute does not exist
+        else // errno==ENOATTR hence the attribute does not exist
         {
             msgprintf(MSG_VERB2, "            winattr:lgetxattr-win(%s,%s)=-1: errno==ENOATTR\n", relpath, winattr[i]);
-            free(valbuf);
-        }
-        else
-        {
             free(valbuf);
         }
     }
@@ -581,7 +577,7 @@ int createar_save_file(csavear *save, char *root, char *relpath, struct stat64 *
     cdico *dicoattr;
     int attrerrors=0;
     u64 filecost;
-    u64 progress;
+    s64 progress;
     int objtype;
     int res;
     
@@ -950,6 +946,7 @@ int filesystem_mount_partition(cdevinfo *devinfo, cdico *dicofsinfo, u16 fsid)
                 errprintf("filesystem of partition [%s] is not supported by fsarchiver: filesystem=[%s]\n", devinfo->devpath, fsbuf);
             return -1;
         }
+
         // check the filesystem is mounted with the right mount-options (to preserve acl and xattr)
         strlist_init(&reqmntopt);
         strlist_init(&badmntopt);
@@ -1039,12 +1036,18 @@ int filesystem_mount_partition(cdevinfo *devinfo, cdico *dicofsinfo, u16 fsid)
         devinfo->mountedbyfsa=true;
     }
 
+    // Make sure users are aware if they save filesystems with experimental support in fsarchiver
+    if ((g_options.experimental==false) && (filesys[devinfo->fstype].stable==false))
+    {   errprintf("You must enable support for experimental features in order to save %s filesystems with fsarchiver.\n", filesys[devinfo->fstype].name);
+        return -1;
+    }
+
     // Make sure support for extended attributes is enabled if this filesystem supports it
     if (g_options.dontcheckmountopts==false)
     {
         errorattr=false;
 
-        if (filesys[i].support_for_xattr==true)
+        if (filesys[devinfo->fstype].support_for_xattr==true)
         {   errno=0;
             res=lgetxattr(devinfo->partmount, "user.fsa_test_xattr", temp, sizeof(temp));
             msgprintf(MSG_DEBUG1, "lgetxattr(\"%s\", \"user.fsa_test_attr\", buf, bufsize)=[%d] and errno=[%d]\n", devinfo->partmount, (int)res, (int)errno);
@@ -1055,7 +1058,7 @@ int filesystem_mount_partition(cdevinfo *devinfo, cdico *dicofsinfo, u16 fsid)
             }
         }
 
-        if (filesys[i].support_for_acls==true)
+        if (filesys[devinfo->fstype].support_for_acls==true)
         {   errno=0;
             res=lgetxattr(devinfo->partmount, "system.posix_acl_access", temp, sizeof(temp));
             msgprintf(MSG_DEBUG1, "lgetxattr(\"%s\", \"system.posix_acl_access\", buf, bufsize)=[%d] and errno=[%d]\n", devinfo->partmount, (int)res, (int)errno);
