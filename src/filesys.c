@@ -27,6 +27,7 @@
 #include <sys/utsname.h>
 #include <sys/mount.h>
 #include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <errno.h>
 #include <uuid.h>
 
@@ -331,7 +332,7 @@ int generic_umount(char *mntbuf)
         return -1;
     }
 
-    msgprintf(MSG_DEBUG1, "unmount_partition(%s)\n", mntbuf);
+    msgprintf(MSG_DEBUG1, "generic_umount(%s)\n", mntbuf);
     for (i=0, errno=0 ; (i < 4) && (res=umount2(mntbuf, 0)!=0) && (errno==EBUSY) ; i++)
     {   sync();
         sleep(i+1);
